@@ -17,19 +17,24 @@ def parse_markdown(md_text):
             while line:
                 italic_match = re.match(r'\*(.*?)\*', line)
                 if italic_match:
-                    italic_text = italic_match.group(1)
-                    parts.append(('en', italic_text))
+                    italic_text = italic_match.group(1).strip()
+                    if italic_text:
+                        parts.append(('en', italic_text))
                     line = line[italic_match.end():].strip()
                 else:
                     # Find next italic or end
                     next_italic = line.find('*')
                     if next_italic == -1:
-                        parts.append(('zh', line))
+                        if line.strip():
+                            parts.append(('zh', line.strip()))
                         line = ''
                     else:
-                        parts.append(('zh', line[:next_italic].strip()))
+                        text = line[:next_italic].strip()
+                        if text:
+                            parts.append(('zh', text))
                         line = line[next_italic:]
-            parsed_lines.append(parts)
+            if parts:
+                parsed_lines.append(parts)
     return parsed_lines
 
 # Async function to generate MP3 for a single text segment
@@ -58,17 +63,15 @@ if st.button("Generate MP3s"):
         # Generate MP3s
         mp3_files = []
         for i, line_parts in enumerate(parsed_lines, 1):
-            output_file = f"temp_mp3/{i}.mp3"
-            # Since we're not combining audio, we take the first part for simplicity
-            # If multiple parts need separate files, this can be extended
-            lang, text = line_parts[0]  # Taking first segment for each line
-            asyncio.run(generate_mp3(text, lang, output_file))
-            mp3_files.append(output_file)
-            
-            # Display audio player
-            st.write(f"Line {i}: {text} ({lang})")
-            with open(output_file, "rb") as f:
-                st.audio(f, format="audio/mp3")
+            for j, (lang, text) in enumerate(line_parts, 1):
+                output_file = f"temp_mp3/{i}_{lang}.mp3"
+                asyncio.run(generate_mp3(text, lang, output_file))
+                mp3_files.append(output_file)
+                
+                # Display audio player
+                st.write(f"Line {i}, Part {j}: {text} ({lang})")
+                with open(output_file, "rb") as f:
+                    st.audio(f, format="audio/mp3")
         
         # Create ZIP for bulk download
         zip_buffer = BytesIO()
